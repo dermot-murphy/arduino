@@ -99,7 +99,7 @@ jobs:
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} doxygen --version
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} gcc --version
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} ninja --version
-                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} gcovr --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} python3 --version
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} cmake --version
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} arduino-cli version
                                         docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} arduino-lint --version
