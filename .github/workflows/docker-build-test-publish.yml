@@ -1,0 +1,109 @@
+name: Docker Build and Push
+
+on:
+        # Run on a push where one of the files below has changed
+        push:
+                paths:
+                        - docker/Dockerfile
+                        - .github/workflows/docker-build-test-publish.yml
+
+        # Allows you to run this workflow manually from the Actions tab
+        workflow_dispatch:
+        
+env:
+        DOCKER_REPO:            canembed/arduino
+        DOCKER_TEST_TAG:        canembed/arduino:test
+        DOCKER_LATEST_TAG:      canembed/arduino:latest
+
+jobs:
+
+        Build:
+                runs-on: ubuntu-latest
+
+                steps:
+
+                -       name: Checkout
+                        uses: actions/checkout@v4
+
+                -       name: Set up QEMU
+                        uses: docker/setup-qemu-action@v3
+
+                -       name: Set up Docker Buildx
+                        uses: docker/setup-buildx-action@v3
+
+                -       name: Login to Docker Hub
+                        uses: docker/login-action@v3 
+                        with:
+                                username: ${{ secrets.DOCKERHUB_USER }}
+                                password: ${{ secrets.DOCKERHUB_PAT }}
+
+                -       name: Extract metadata for Docker
+                        id:   meta
+                        uses: docker/metadata-action@v5
+                        with:
+                                images: canembed/${{env.DOCKER_TARGET}}
+                                tags: |
+                                        type=ref,event=branch
+                                        type=ref,event=pr
+                                        type=semver,pattern={{version}}
+                                        type=semver,pattern={{major}}.{{minor}}
+
+                -       name: Build Docker Image
+                        uses: docker/build-push-action@v5
+                        with:
+                                context: ./docker
+                                load: true
+                                tags: ${{ env.DOCKER_TEST_TAG }}
+
+                -       name: Test
+                        run: |
+                                docker run --rm ${{ env.DOCKER_TEST_TAG }}  
+
+                -       name: Docker Hub Description
+                        uses: peter-evans/dockerhub-description@v4
+                        with:
+                                username: ${{ secrets.DOCKERHUB_USER }}
+                                password: ${{ secrets.DOCKERHUB_PAT }}
+                                repository: ${{ env.DOCKER_REPO }}
+                                short-description: ${{ github.event.repository.description }}
+                                enable-url-completion: true
+
+                -       name: Build and Push
+                        uses: docker/build-push-action@v5
+                        with:
+                                context: ./docker
+                                push: ${{ github.event_name != 'pull_request' }}
+                                tags: ${{ env.DOCKER_LATEST_TAG }}
+                                labels: ${{ steps.meta.outputs.labels }}
+
+        Test:
+                needs: Build
+                runs-on: ubuntu-latest
+
+                steps:
+
+                        -       name: Remove Image and Download Latest
+                                run:  docker run --rm ${{ env.DOCKER_LATEST_TAG }}
+
+                        -       name: Bash Version
+                                run:  docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} bash --version
+
+                        -       name: Tool Versions
+                                run: |
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} zip --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} curl --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} wget --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} unzip -v
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} make --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} git --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} doxygen --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} gcc --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} ninja --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} gcovr --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} cmake --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} arduino-cli version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} arduino-lint --version
+                                        docker run -v .:/data -w /data ${{ env.DOCKER_LATEST_TAG }} arduino-fwuploader version
+
+
+                                        
